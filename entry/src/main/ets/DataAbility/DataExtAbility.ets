@@ -51,6 +51,7 @@ settings.display.SCREEN_OFF_TIMEOUT
 ];
 let ret:number = 0;
 let err:BusinessError = {'code':-1} as BusinessError;
+const PROXY: string = 'Proxy';
 
 export default class DataExtAbility extends DataShareExtensionAbility {
   onCreate(want: Want) {
@@ -82,10 +83,11 @@ export default class DataExtAbility extends DataShareExtensionAbility {
           let uri = requests[i].uri;
 
           let value: relationalStore.ValuesBucket|null = requests[i].value;
+          const tableName: string = this.getTableNameFromUri(uri);
           if (opt == 'insert') {
             Log.info('onInitialized insert start');
             if(value){
-              rdbStore?.insert(SettingsDataConfig.TABLE_NAME, value,  (err, ret) => {
+              rdbStore?.insert(tableName, value,  (err, ret) => {
                 Log.info('onInitialized insert ret: ' + ret);
                 if (callback) {
                   callback(err, ret);
@@ -95,7 +97,7 @@ export default class DataExtAbility extends DataShareExtensionAbility {
           } else if (opt == 'query') {
             Log.info('onInitialized query start');
             if(predicates){
-              rdbStore?.query(SettingsDataConfig.TABLE_NAME, predicates, columns, (
+              rdbStore?.query(tableName, predicates, columns, (
                 err: BusinessError, resultSet: relationalStore.ResultSet) => {
                 Log.info('onInitialized query ret: ' + JSON.stringify(resultSet));
                 if (callback) {
@@ -107,7 +109,7 @@ export default class DataExtAbility extends DataShareExtensionAbility {
           } else if (opt == 'update') {
             Log.info('onInitialized update start');
             if(value){
-              rdbStore?.update(SettingsDataConfig.TABLE_NAME, value, predicates, (err, ret) => {
+              rdbStore?.update(tableName, value, predicates, (err, ret) => {
                 Log.info('onInitialized update ret: ' + ret);
                 if (callback) {
                   callback(err, ret);
@@ -147,7 +149,7 @@ export default class DataExtAbility extends DataShareExtensionAbility {
         Log.info('insert request = ' + JSON.stringify(request));
         requests.push(request);
       } else {
-        rdbStore.insert(SettingsDataConfig.TABLE_NAME, value,  (err, ret) => {
+        rdbStore.insert(this.getTableNameFromUri(uri), value,  (err, ret) => {
           Log.info('insert result: ' + ret);
           callback(err, ret);
         });
@@ -187,7 +189,7 @@ export default class DataExtAbility extends DataShareExtensionAbility {
         Log.info('update request = ' + JSON.stringify(request));
         requests.push(request);
       } else {
-        rdbStore.update(SettingsDataConfig.TABLE_NAME, value, predicates , (err, ret)=> {
+        rdbStore.update(this.getTableNameFromUri(uri), value, predicates , (err, ret)=> {
           Log.info('update result: ' + ret);
           callback(err, ret);
         });
@@ -221,13 +223,30 @@ export default class DataExtAbility extends DataShareExtensionAbility {
       Log.info('query request = ' + JSON.stringify(request));
       requests.push(request);
     } else {
-      rdbStore.query(SettingsDataConfig.TABLE_NAME, predicates, columns,
+      rdbStore.query(this.getTableNameFromUri(uri), predicates, columns,
         (err:BusinessError, resultSet:relationalStore.ResultSet)=> {
         Log.info(
           'query result:' + JSON.stringify(resultSet.rowCount) + 'columnNames' + JSON.stringify(resultSet.columnNames));
         callback(err, resultSet);
       })
     }
+  }
+
+  getTableNameFromUri(uri: string): string {
+    let ret = '';
+    let rPos = uri.search(PROXY) - 1;
+    let lPos = uri.search(SettingsDataConfig.USER_TABLE_NAME);
+    if (lPos < 0) {
+      lPos = uri.search(SettingsDataConfig.SECURE_TABLE_NAME);
+    }
+    if (lPos < 0) {
+      lPos = uri.search(SettingsDataConfig.TABLE_NAME);
+    }
+    if (lPos < 0 || rPos < 0) {
+      return ret;
+    }
+    ret = uri.substring(lPos, rPos);
+    return ret;
   }
 
   private DoSystemSetting(settingsKey: string|undefined, settingsValue: string|undefined) {
